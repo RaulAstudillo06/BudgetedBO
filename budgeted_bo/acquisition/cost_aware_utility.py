@@ -61,7 +61,10 @@ class ValCostRatioUtility(CostAwareUtility):
         Returns:
             A `batch_shape`-dim Tensor of transformed deltas.
         """
-        costs = model.train_targets[1][..., -self.n_evals - 1 : -1]
+        y = torch.transpose(model.train_targets, -2, -1)
+        y_original_scale = model.outcome_transform.untransform(y)[0]
+        log_costs = y_original_scale[..., 1]
+        costs = torch.exp(log_costs)
         if self.min_cost is not None:
             costs.clamp_min(self.min_cost)
         cumulative_costs = _compute_cumulative_cost(
