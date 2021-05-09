@@ -64,6 +64,9 @@ __pycache__/
 *.idea
 *.pstats
 
+# VS code
+*.vscode
+
 # Experimental results
 experiments_results/
 
