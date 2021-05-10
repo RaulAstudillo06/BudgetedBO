@@ -110,8 +110,10 @@ def budgeted_bo_trial(
         X = generate_initial_design(
             num_samples=n_init_evals, input_dim=input_dim, seed=trial)
         objective_X, cost_X = evaluate_obj_and_cost_at_X(
-            X=X, objective_function=cost_function, cost_function=cost_function, objective_cost_function=objective_cost_function)
-        
+            X=X, objective_function=objective_function, cost_function=cost_function, objective_cost_function=objective_cost_function)
+        print(X)
+        print(objective_X)
+        print(cost_X)
         # Current best objective value
         best_obs_val = objective_X.max().item()
 
@@ -161,7 +163,7 @@ def budgeted_bo_trial(
         best_obs_val = objective_X.max().item()
         hist_best_obs_vals.append(best_obs_val)
         print("Best value found so far: " + str(best_obs_val))
-        print("Cumulative cost: " + str(cumulative_cost))
+        print("Remaining budget: " + str(budget_plus_init_cost - cumulative_cost))
 
         # Save data
         if not os.path.exists(results_folder) :
@@ -223,8 +225,7 @@ def get_new_suggested_point(
             previous_budget=algo_params.get("suggested_budget"),
             lower_bound=algo_params.get("lower_bound"),
         )
-        print(budget)
-        print(lower_bound)
+
         algo_params["suggested_budget"] = budget
         algo_params["lower_bound"] = lower_bound
 
@@ -235,7 +236,7 @@ def get_new_suggested_point(
 
         acquisition_function = BudgetedMultiStepExpectedImprovement(
             model=model,
-            budget=budget,
+            budget=budget + cost_X.sum().item(),
             batch_size=1,
             lookahead_batch_sizes=[1 for _ in algo_params.get(
                 "lookahead_n_fantasies")],

@@ -65,8 +65,8 @@ def fantasize_costs(
     standard_bounds = torch.tensor([[0.0] * input_dim, [1.0] * input_dim])
 
     if algo == "CA_EI_cool":
+        obj_model = model
         for _ in range(n_steps):
-            obj_model = model
             standardized_obj_vals = obj_model.train_targets
             obj_vals = obj_model.outcome_transform.untransform(standardized_obj_vals)[0]
             best_f = torch.max(obj_vals).item()
@@ -105,7 +105,7 @@ def fantasize_costs(
             )
             obj_post_X = obj_model.posterior(new_x, observation_noise=True)
             fantasy_obj_val = obj_sampler(obj_post_X).squeeze(dim=0)
-            obj_model = obj_model.condition_on_observations(X=new_x, Y=fantasy_obj_val)
+            obj_model = obj_model.condition_on_observations(X=new_x, Y=fantasy_obj_val.detach())
 
             cost_sampler = IIDNormalSampler(
                 num_samples=1, resample=True, collapse_batch_dims=True
@@ -113,7 +113,7 @@ def fantasize_costs(
             cost_post_X = cost_model.posterior(new_x, observation_noise=True)
             fantasy_cost_val = cost_sampler(cost_post_X).squeeze(dim=0)
             cost_model = cost_model.condition_on_observations(
-                X=new_x, Y=fantasy_cost_val
+                X=new_x, Y=fantasy_cost_val.detach()
             )
 
             # Update remaining budget
@@ -124,8 +124,8 @@ def fantasize_costs(
         costs = cost_model.outcome_transform.untransform(transformed_costs)[0]
         fantasy_costs = costs.squeeze()[-n_steps:].detach()
 
-    logging.info("Fantasy costs:")
-    logging.info(fantasy_costs)
+    print("Fantasy costs:")
+    print(fantasy_costs)
     return fantasy_costs
 
 
@@ -139,7 +139,7 @@ def fit_model(
     if training_mode == "objective":
         Y = objective_X
     elif training_mode == "cost":
-        Y = torch.log(cost_X)
+        Y = cost_X
     elif training_mode == "objective_and_cost":
         Y = torch.cat((objective_X.unsqueeze(dim=-1), torch.log(cost_X).unsqueeze(dim=-1)), dim=-1)
 
@@ -148,7 +148,14 @@ def fit_model(
         Y = Y.unsqueeze(-1)
 
     # Outcome transform
-    outcome_transform = Standardize(m=Y.shape[-1], batch_shape=Y.shape[:-2])
+    standardize = Standardize(m=Y.shape[-1], batch_shape=Y.shape[:-2])
+    if training_mode == "cost":
+        log = Log()
+        outcome_transform = ChainedOutcomeTransform(
+                log=log, standardize=standardize
+            )
+    else:
+        outcome_transform = standardize
 
     # Likelihood
     if noiseless_obs:
@@ -178,15 +185,19 @@ def fit_model(
     return model
 
 
-def generate_initial_design(num_samples: int, input_dim: int, seed=None):
+def generate_initial_design(num_samples: int, input_dim: int, sobol: bool=True, seed: int=None):
     # generate training data
-    if seed is not None:
-        old_state = torch.random.get_rng_state()
-        torch.manual_seed(seed)
-        X = torch.rand([num_samples, input_dim])
-        torch.random.set_rng_state(old_state)
+    if sobol:
+        soboleng = torch.quasirandom.SobolEngine(dimension=input_dim, scramble=True, seed=seed)
+        X = soboleng.draw(num_samples).to(dtype=torch.double)
     else:
-        X = torch.rand([num_samples, input_dim])
+        if seed is not None:
+            old_state = torch.random.get_rng_state()
+            torch.manual_seed(seed)
+            X = torch.rand([num_samples, input_dim])
+            torch.random.set_rng_state(old_state)
+        else:
+            X = torch.rand([num_samples, input_dim])
     return X
 
 
@@ -258,12 +269,12 @@ def optimize_acqf_and_get_suggested_point(
     is_ms = isinstance(acq_func, qMultiStepLookahead)
     input_dim = bounds.shape[1]
     q = acq_func.get_augmented_q_batch_size(batch_size) if is_ms else batch_size
-    raw_samples = 100 * input_dim * batch_size
-    num_restarts =  5 * input_dim * batch_size
+    raw_samples = 200 * input_dim * batch_size
+    num_restarts =  10 * input_dim * batch_size
 
-    if False:#is_ms:
-        raw_samples *= (len(algo_params.get("lookahead_n_fantasies")) + 1)
-        num_restarts *=  (len(algo_params.get("lookahead_n_fantasies")) + 1)
+    #if is_ms:
+        #raw_samples *= (len(algo_params.get("lookahead_n_fantasies")) + 1)
+        #num_restarts *=  (len(algo_params.get("lookahead_n_fantasies")) + 1)
 
     if algo_params.get("suggested_x_full_tree") is not None:
         batch_initial_conditions = warmstart_multistep(
@@ -289,7 +300,7 @@ def optimize_acqf_and_get_suggested_point(
                 "method": "L-BFGS-B",
             },
             batch_initial_conditions=batch_initial_conditions,
-            return_best_only=not is_ms,
+            return_best_only=False,
             return_full_tree=is_ms,
         )
 
@@ -299,13 +310,11 @@ def optimize_acqf_and_get_suggested_point(
         algo_params["suggested_x_full_tree"] = candidates.clone()
         candidates = acq_func.extract_candidates(candidates)
 
-    print(acq_values.shape)
-    print(candidates.shape)
-    acq_values_sorted, indices = torch.sort(acq_values.squeeze()) 
+    acq_values_sorted, indices = torch.sort(acq_values.squeeze(), descending=True)
+    print("Acquisition values:") 
     print(acq_values_sorted)
-    #print(candidates)
+    print("Candidates:")
+    print(candidates[indices].squeeze())
 
     new_x = get_best_candidates(batch_candidates=candidates, batch_values=acq_values)
-    print(new_x.shape)
-    print(error)
     return new_x
