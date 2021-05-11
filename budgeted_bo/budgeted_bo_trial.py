@@ -12,6 +12,7 @@ from botorch.acquisition import ExpectedImprovement
 from torch import Tensor
 
 from acquisition_functions.budgeted_multi_step_ei import BudgetedMultiStepExpectedImprovement
+from acquisition_functions.naive_cost_aware import NaiveCostAwareAcquisitionFunction
 from utils import (
     evaluate_obj_and_cost_at_X, 
     fantasize_costs, fit_model,
@@ -128,10 +129,10 @@ def budgeted_bo_trial(
 
     while cumulative_cost <= budget_plus_init_cost and iteration <= n_max_iter:
         iteration += 1
-        logging.info("Problem: " + problem)
-        logging.info("Sampling policy: " + algo_id)
-        logging.info("Trial: " + str(trial))
-        logging.info("Iteration: " + str(iteration))
+        print("Problem: " + problem)
+        print("Sampling policy: " + algo_id)
+        print("Trial: " + str(trial))
+        print("Iteration: " + str(iteration))
 
         # New suggested point
         t0 = time.time()
@@ -225,7 +226,8 @@ def get_new_suggested_point(
             previous_budget=algo_params.get("suggested_budget"),
             lower_bound=algo_params.get("lower_bound"),
         )
-
+        #print("Using full budget") 
+        #budget = budget_left
         algo_params["suggested_budget"] = budget
         algo_params["lower_bound"] = lower_bound
 
@@ -257,6 +259,34 @@ def get_new_suggested_point(
 
         acquisition_function = ExpectedImprovement(
             model=model, best_f=objective_X.max().item())
+            
+    elif algo == "EI-PUC":
+        # Model
+        objective_model = fit_model(
+            X=X,
+            objective_X=objective_X,
+            cost_X=cost_X,
+            training_mode="objective",
+            noiseless_obs=True,
+        )
+
+        cost_model = fit_model(
+            X=X,
+            objective_X=objective_X,
+            cost_X=cost_X,
+            training_mode="cost",
+            noiseless_obs=True,
+        )
+
+        # Raw acquisition function
+        raw_acquisition_function = ExpectedImprovement(
+            model=objective_model, best_f=objective_X.max().item())
+
+        # Acquisition function
+        acquisition_function = NaiveCostAwareAcquisitionFunction(
+            raw_acqf=raw_acquisition_function,
+            cost_model=cost_model,
+        )
 
     new_x = optimize_acqf_and_get_suggested_point(
         acq_func=acquisition_function,
