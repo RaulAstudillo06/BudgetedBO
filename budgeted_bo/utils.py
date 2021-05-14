@@ -11,7 +11,6 @@ from botorch.acquisition.multi_step_lookahead import qMultiStepLookahead, warmst
 from botorch.acquisition.objective import ScalarizedObjective
 from botorch.generation.gen import get_best_candidates
 from botorch.models import SingleTaskGP
-from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.model import Model
 from botorch.models.transforms.outcome import (
     ChainedOutcomeTransform,
@@ -21,14 +20,15 @@ from botorch.models.transforms.outcome import (
 from botorch.optim.optimize import optimize_acqf
 from botorch.sampling.samplers import IIDNormalSampler
 from botorch.utils.transforms import normalize
-from acquisition_functions.naive_cost_aware import (
-    NaiveCostAwareAcquisitionFunction,
-)
 from gpytorch.constraints.constraints import Interval
 from gpytorch.likelihoods.gaussian_likelihood import GaussianLikelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from torch import Tensor
 
+from acquisition_functions.naive_cost_aware import (
+    NaiveCostAwareAcquisitionFunction,
+)
+from custom_warmstart_multistep import custom_warmstart_multistep
 
 def evaluate_obj_and_cost_at_X(
     X: Tensor,
@@ -64,7 +64,9 @@ def fantasize_costs(
     """
     standard_bounds = torch.tensor([[0.0] * input_dim, [1.0] * input_dim])
 
-    if algo == "CA_EI_cool":
+    fantasy_optimizers = []
+
+    if algo == "EI-PUC_CC":
         obj_model = model
         for _ in range(n_steps):
             standardized_obj_vals = obj_model.train_targets
@@ -99,6 +101,8 @@ def fantasize_costs(
                 return_best_only=True,
             )
 
+            fantasy_optimizers.append(new_x.clone())
+
             # Fantasize objective and cost values
             obj_sampler = IIDNormalSampler(
                 num_samples=1, resample=True, collapse_batch_dims=True
@@ -126,7 +130,7 @@ def fantasize_costs(
 
     print("Fantasy costs:")
     print(fantasy_costs)
-    return fantasy_costs
+    return fantasy_costs, fantasy_optimizers
 
 
 def fit_model(
@@ -213,6 +217,7 @@ def get_suggested_budget(
     init_budget: float,
     previous_budget: Optional[float] = None,
     lower_bound: Optional[float] = None,
+    fantasy_optimizers: Optional[float] = None,
 ):
     """
     Computes the suggested budget to be used by the budgeted multi-step
@@ -224,7 +229,7 @@ def get_suggested_budget(
         and (previous_budget - cost_X[-1] > lower_bound)
     ):
         suggested_budget = previous_budget - cost_X[-1].item()
-        return suggested_budget, lower_bound
+        return suggested_budget, lower_bound, fantasy_optimizers
 
     if strategy == "fantasy_costs_from_aux_policy":
         # Get objective and cost models (Note that, since we originally model
@@ -241,8 +246,8 @@ def get_suggested_budget(
         )
 
         # Fantasize the observed costs following the auxiliary acquisition function
-        fantasy_costs = fantasize_costs(
-            algo="CA_EI_cool",
+        fantasy_costs, fantasy_optimizers = fantasize_costs(
+            algo="EI-PUC_CC",
             model=obj_model,
             n_steps=n_lookahead_steps,
             budget_left=copy(budget_left),
@@ -256,7 +261,7 @@ def get_suggested_budget(
         suggested_budget = fantasy_costs.sum().item()
         lower_bound = fantasy_costs.min().item()
     suggested_budget = min(suggested_budget, budget_left)
-    return suggested_budget, lower_bound
+    return suggested_budget, lower_bound, fantasy_optimizers
 
 
 def optimize_acqf_and_get_suggested_point(
@@ -277,12 +282,13 @@ def optimize_acqf_and_get_suggested_point(
         #num_restarts *=  (len(algo_params.get("lookahead_n_fantasies")) + 1)
 
     if algo_params.get("suggested_x_full_tree") is not None:
-        batch_initial_conditions = warmstart_multistep(
+        batch_initial_conditions = custom_warmstart_multistep(
             acq_function=acq_func,
             bounds=bounds,
             num_restarts=num_restarts,
             raw_samples=raw_samples,
             full_optimizer=algo_params.get("suggested_x_full_tree"),
+            algo_params=algo_params,
         )
     else:
         batch_initial_conditions = None

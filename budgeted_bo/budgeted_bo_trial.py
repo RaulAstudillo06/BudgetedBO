@@ -96,7 +96,7 @@ def budgeted_bo_trial(
             X = generate_initial_design(
                 num_samples=n_init_evals, input_dim=input_dim, seed=trial)
             objective_X, cost_X = evaluate_obj_and_cost_at_X(
-                X=X, objective_function=cost_function, cost_function=cost_function, objective_cost_function=objective_cost_function)
+                X=X, objective_function=objective_function, cost_function=cost_function, objective_cost_function=objective_cost_function)
 
             # Current best objective value
             best_obs_val = objective_X.max().item()
@@ -127,6 +127,8 @@ def budgeted_bo_trial(
     cumulative_cost = cost_X.sum().item()
     budget_plus_init_cost = cost_X[:n_init_evals].sum().item() + budget
 
+    algo_params["init_budget"] = budget
+
     while cumulative_cost <= budget_plus_init_cost and iteration <= n_max_iter:
         iteration += 1
         print("Problem: " + problem)
@@ -142,7 +144,6 @@ def budgeted_bo_trial(
             X=X,
             objective_X=objective_X,
             cost_X=cost_X,
-            init_budget=budget,
             budget_left=budget_plus_init_cost - cumulative_cost,
             algo_params=algo_params,
         )
@@ -193,11 +194,12 @@ def get_new_suggested_point(
     X: Tensor,
     objective_X: Tensor,
     cost_X: Tensor,
-    init_budget: float,
     budget_left: float,
     algo_params: Optional[Dict] = None,
 ) -> Tensor:
+
     input_dim = X.shape[-1]
+    algo_params["budget_left"] = budget_left
 
     if algo == "Random":
         return torch.rand([1, input_dim])
@@ -212,7 +214,7 @@ def get_new_suggested_point(
         )
 
         # Acquisition function
-        budget, lower_bound = get_suggested_budget(
+        budget, lower_bound, fantasy_optimizers = get_suggested_budget(
             strategy="fantasy_costs_from_aux_policy",
             refill_until_lower_bound_is_reached=algo_params["refill_until_lower_bound_is_reached"],
             budget_left=budget_left,
@@ -222,14 +224,15 @@ def get_new_suggested_point(
             X=X,
             objective_X=objective_X,
             cost_X=cost_X,
-            init_budget=init_budget,
+            init_budget=algo_params.get("init_budget"),
             previous_budget=algo_params.get("suggested_budget"),
             lower_bound=algo_params.get("lower_bound"),
+            fantasy_optimizers=algo_params.get("aux_sequential_fantasy_costs"),
         )
-        #print("Using full budget") 
-        #budget = budget_left
+
         algo_params["suggested_budget"] = budget
         algo_params["lower_bound"] = lower_bound
+        algo_params["aux_sequential_fantasy_costs"] = fantasy_optimizers
 
         if algo_params.get("soft_plus_transform_budget"):
             beta = 2.0 / cost_X.min().item()
@@ -288,10 +291,11 @@ def get_new_suggested_point(
             cost_model=cost_model,
         )
 
+    standard_bounds = torch.tensor([[0.0] * input_dim, [1.0] * input_dim])
+
     new_x = optimize_acqf_and_get_suggested_point(
         acq_func=acquisition_function,
-        bounds=torch.tensor([[0. for i in range(input_dim)], [
-                            1. for i in range(input_dim)]]),
+        bounds=standard_bounds,
         batch_size=1,
         algo_params=algo_params,
     )
