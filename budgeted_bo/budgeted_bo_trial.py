@@ -12,10 +12,10 @@ from botorch.acquisition import ExpectedImprovement
 from torch import Tensor
 
 from acquisition_functions.budgeted_multi_step_ei import BudgetedMultiStepExpectedImprovement
-from acquisition_functions.naive_cost_aware import NaiveCostAwareAcquisitionFunction
+from acquisition_functions.ei_puc import ExpectedImprovementPerUnitOfCost
 from utils import (
     evaluate_obj_and_cost_at_X, 
-    fantasize_costs, fit_model,
+    fit_model,
     generate_initial_design, 
     get_suggested_budget, 
     optimize_acqf_and_get_suggested_point
@@ -265,30 +265,18 @@ def get_new_suggested_point(
             
     elif algo == "EI-PUC":
         # Model
-        objective_model = fit_model(
+        model = fit_model(
             X=X,
             objective_X=objective_X,
             cost_X=cost_X,
-            training_mode="objective",
+            training_mode="objective_and_cost",
             noiseless_obs=True,
         )
-
-        cost_model = fit_model(
-            X=X,
-            objective_X=objective_X,
-            cost_X=cost_X,
-            training_mode="cost",
-            noiseless_obs=True,
-        )
-
-        # Raw acquisition function
-        raw_acquisition_function = ExpectedImprovement(
-            model=objective_model, best_f=objective_X.max().item())
 
         # Acquisition function
-        acquisition_function = NaiveCostAwareAcquisitionFunction(
-            raw_acqf=raw_acquisition_function,
-            cost_model=cost_model,
+        acquisition_function = ExpectedImprovementPerUnitOfCost(
+            model=model,
+            best_f=objective_X.max().item()
         )
 
     standard_bounds = torch.tensor([[0.0] * input_dim, [1.0] * input_dim])
