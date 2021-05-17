@@ -22,7 +22,7 @@ from utils import fit_model
 
 # Objective and cost functions
 def get_objective_cost_function(seed: int) -> Callable:
-    data = scipy.io.loadmat("lda_on_grid.mat")
+    data = scipy.io.loadmat(script_dir + "/lda_on_grid.mat")
     data = data["lda_on_grid"]
 
 
@@ -35,7 +35,7 @@ def get_objective_cost_function(seed: int) -> Callable:
     cost_X = torch.tensor(data[:, 4]).unsqueeze(-1) / 3600.0
     log_cost_X = torch.log(cost_X)
 
-    objective_model_state_dict = torch.load('lda_objective_model_state.pth')
+    objective_model_state_dict = torch.load(script_dir + '/lda_objective_model_state.pth')
     objective_model = fit_model(
         X=X,
         objective_X=objective_X,
@@ -45,7 +45,7 @@ def get_objective_cost_function(seed: int) -> Callable:
     )
     objective_model.load_state_dict(objective_model_state_dict)
 
-    log_cost_model_state_dict = torch.load('lda_log_cost_model_state.pth')
+    log_cost_model_state_dict = torch.load(script_dir + '/lda_log_cost_model_state.pth')
     log_cost_model = fit_model(
         X=X,
         objective_X=log_cost_X,
