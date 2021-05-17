@@ -1,6 +1,6 @@
 
 import logging
-from copy import copy
+from copy import copy, deepcopy
 from typing import Callable, Dict, Optional
 
 import torch
@@ -25,10 +25,9 @@ from gpytorch.likelihoods.gaussian_likelihood import GaussianLikelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from torch import Tensor
 
-from acquisition_functions.naive_cost_aware import (
-    NaiveCostAwareAcquisitionFunction,
-)
+from acquisition_functions.ei_puc import ExpectedImprovementPerUnitOfCost
 from custom_warmstart_multistep import custom_warmstart_multistep
+
 
 def evaluate_obj_and_cost_at_X(
     X: Tensor,
@@ -56,7 +55,6 @@ def fantasize_costs(
     budget_left: float,
     init_budget: float,
     input_dim: int,
-    cost_model: Optional[Model] = None,
 ):
     """
     Fantasizes the observed costs when following a specified sampling
@@ -64,24 +62,21 @@ def fantasize_costs(
     """
     standard_bounds = torch.tensor([[0.0] * input_dim, [1.0] * input_dim])
 
+    fantasy_costs = []
     fantasy_optimizers = []
 
     if algo == "EI-PUC_CC":
-        obj_model = model
         for _ in range(n_steps):
-            standardized_obj_vals = obj_model.train_targets
-            obj_vals = obj_model.outcome_transform.untransform(standardized_obj_vals)[0]
+            # Acquisition function
+            y = torch.transpose(model.train_targets, -2, -1)
+            y_original_scale = model.outcome_transform.untransform(y)[0]
+            obj_vals = y_original_scale[..., 0]
             best_f = torch.max(obj_vals).item()
-
-            raw_aux_acq_func = ExpectedImprovement(model=obj_model, best_f=best_f)
-
-            # Baseline acquisition fucntion
             cost_exponent = budget_left / init_budget
 
-            aux_acq_func = NaiveCostAwareAcquisitionFunction(
-                raw_acqf=raw_aux_acq_func,
-                cost_model=cost_model,
-                use_mean=True,
+            aux_acq_func = ExpectedImprovementPerUnitOfCost(
+                model=model,
+                best_f=best_f,
                 cost_exponent=cost_exponent,
             )
 
@@ -104,31 +99,19 @@ def fantasize_costs(
             fantasy_optimizers.append(new_x.clone())
 
             # Fantasize objective and cost values
-            obj_sampler = IIDNormalSampler(
+            sampler = IIDNormalSampler(
                 num_samples=1, resample=True, collapse_batch_dims=True
             )
-            obj_post_X = obj_model.posterior(new_x, observation_noise=True)
-            fantasy_obj_val = obj_sampler(obj_post_X).squeeze(dim=0)
-            obj_model = obj_model.condition_on_observations(X=new_x, Y=fantasy_obj_val.detach())
-
-            cost_sampler = IIDNormalSampler(
-                num_samples=1, resample=True, collapse_batch_dims=True
-            )
-            cost_post_X = cost_model.posterior(new_x, observation_noise=True)
-            fantasy_cost_val = cost_sampler(cost_post_X).squeeze(dim=0)
-            cost_model = cost_model.condition_on_observations(
-                X=new_x, Y=fantasy_cost_val.detach()
-            )
+            posterior_new_x = model.posterior(new_x, observation_noise=True)
+            fantasy_obs = sampler(posterior_new_x).squeeze(dim=0).detach()
+            fantasy_costs.append(torch.exp(fantasy_obs[0,1]).item())
+            model = model.condition_on_observations(X=new_x, Y=fantasy_obs)
 
             # Update remaining budget
-            transformed_costs = cost_model.train_targets
-            costs = cost_model.outcome_transform.untransform(transformed_costs)[0]
-            budget_left = budget_left - costs.squeeze()[-1].item()
-        transformed_costs = cost_model.train_targets
-        costs = cost_model.outcome_transform.untransform(transformed_costs)[0]
-        fantasy_costs = costs.squeeze()[-n_steps:].detach()
+            budget_left -= fantasy_costs[-1]
 
     print("Fantasy costs:")
+    fantasy_costs = torch.tensor(fantasy_costs)
     print(fantasy_costs)
     return fantasy_costs, fantasy_optimizers
 
@@ -232,28 +215,15 @@ def get_suggested_budget(
         return suggested_budget, lower_bound, fantasy_optimizers
 
     if strategy == "fantasy_costs_from_aux_policy":
-        # Get objective and cost models (Note that, since we originally model
-        # the log cost, the cost model cannot be obtained by subsetting the
-        # original model)
-        obj_model = model.subset_output(idcs=[0])
-
-        cost_model = fit_model(
-            X=X,
-            objective_X=objective_X,
-            cost_X=cost_X,
-            training_mode="cost",
-            noiseless_obs=True,
-        )
 
         # Fantasize the observed costs following the auxiliary acquisition function
         fantasy_costs, fantasy_optimizers = fantasize_costs(
             algo="EI-PUC_CC",
-            model=obj_model,
+            model=deepcopy(model),
             n_steps=n_lookahead_steps,
             budget_left=copy(budget_left),
             init_budget=init_budget,
             input_dim=X.shape[-1],
-            cost_model=cost_model,
         )
 
         # Suggested budget is the minimum between the sum of the fantasy costs
