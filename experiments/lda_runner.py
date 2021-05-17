@@ -70,11 +70,12 @@ def get_objective_cost_function(seed: int) -> Callable:
 
 
 # Algos
-#algos = ["B-MS-EI"]
-#algos_params = [{"lookahead_n_fantasies": [1, 1], "refill_until_lower_bound_is_reached": True, "soft_plus_transform_budget": True}]
-algos = ["EI"]
-algos_params = [{}]
-#algos = ["EI-PUC"]
+algo = "EI-PUC"
+
+if algo == "B-MS-EI": 
+    algo_params = {"lookahead_n_fantasies": [4, 4, 2], "refill_until_lower_bound_is_reached": True, "soft_plus_transform_budget": True}
+else:
+    algo_params = {}
 
 # Run experiment
 if len(sys.argv) == 3:
@@ -86,8 +87,8 @@ elif len(sys.argv) == 2:
 
 experiment_manager(
     problem="lda",
-    algos=algos,
-    algos_params=algos_params,
+    algo=algo,
+    algo_params=algo_params,
     restart=False,
     first_trial=first_trial,
     last_trial=last_trial,
