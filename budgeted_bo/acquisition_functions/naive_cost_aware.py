@@ -81,7 +81,7 @@ class NaiveCostAwareAcquisitionFunction(AcquisitionFunction):
         if self._use_mean:
             expected_cost = cost_posterior.mean.squeeze(dim=-1)
             if self._min_cost is not None:
-                expected_cost.clamp_min(self._min_cost)
+                expected_cost = expected_cost.clamp_min(self._min_cost)
             # add cost of points in q-batch
             expected_cost = expected_cost.sum(dim=-1)
         else:
@@ -89,7 +89,7 @@ class NaiveCostAwareAcquisitionFunction(AcquisitionFunction):
             # transform cost samples
             cost_samples = self.cost_objective(cost_samples)
             if self._min_cost is not None:
-                expected_cost.clamp_min(self._min_cost)
+               cost_samples = cost_samples.clamp_min(self._min_cost)
             # add cost of points in q-batch
             cost_samples = cost_samples.sum(dim=-1)
             expected_cost = cost_samples.mean(dim=0)
