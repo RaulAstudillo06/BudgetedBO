@@ -216,7 +216,7 @@ def get_new_suggested_point(
         # Acquisition function
         suggested_budget, lower_bound, fantasy_optimizers = get_suggested_budget(
             strategy="fantasy_costs_from_aux_policy",
-            refill_until_lower_bound_is_reached=algo_params["refill_until_lower_bound_is_reached"],
+            refill_until_lower_bound_is_reached=algo_params.get("refill_until_lower_bound_is_reached"),
             budget_left=budget_left,
             model=model,
             n_lookahead_steps=len(algo_params.get(
