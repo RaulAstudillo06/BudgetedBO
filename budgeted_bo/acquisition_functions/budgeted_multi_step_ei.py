@@ -25,7 +25,7 @@ class BudgetedMultiStepExpectedImprovement(qMultiStepLookahead):
     def __init__(
         self,
         model: Model,
-        budget: Union[float, Tensor],
+        budget_plus_cumulative_cost: Union[float, Tensor],
         batch_size: int,
         lookahead_batch_sizes: List[int],
         num_fantasies: Optional[List[int]] = None,
@@ -61,7 +61,7 @@ class BudgetedMultiStepExpectedImprovement(qMultiStepLookahead):
                 will be applied on fantasy batch dimensions as well, meaning that base
                 samples are the same in all subtrees starting from the same level.
         """
-        self.budget = budget
+        self.budget_plus_cumulative_cost = budget_plus_cumulative_cost
         self.beta = beta
         self.soft_plus_transform_budget = soft_plus_transform_budget
         self.batch_size = batch_size
@@ -90,7 +90,7 @@ class BudgetedMultiStepExpectedImprovement(qMultiStepLookahead):
 
         valfunc_argfacs = [
             budgeted_ei_argfac(
-                budget=self.budget, beta=beta, is_mc=use_mc_val_funcs
+                budget_plus_cumulative_cost=self.budget_plus_cumulative_cost, beta=beta, is_mc=use_mc_val_funcs
             )
             for _ in batch_sizes
         ]
@@ -126,9 +126,9 @@ class BudgetedMultiStepExpectedImprovement(qMultiStepLookahead):
 class budgeted_ei_argfac(Module):
     r"""Extract the best observed value and reamaining budget from the model."""
 
-    def __init__(self, budget: Union[float, Tensor], beta: float, is_mc: bool) -> None:
+    def __init__(self, budget_plus_cumulative_cost: Union[float, Tensor], beta: float, is_mc: bool) -> None:
         super().__init__()
-        self.budget = budget
+        self.budget_plus_cumulative_cost = budget_plus_cumulative_cost
         self.beta = beta
         self.is_mc = is_mc
 
@@ -138,7 +138,7 @@ class budgeted_ei_argfac(Module):
         obj_vals = y_original_scale[..., 0]
         log_costs = y_original_scale[..., 1]
         costs = torch.exp(log_costs)
-        current_budget = self.budget - costs.sum(dim=-1, keepdim=True)
+        current_budget = self.budget_plus_cumulative_cost - costs.sum(dim=-1, keepdim=True)
 
         if self.is_mc:
             params = {

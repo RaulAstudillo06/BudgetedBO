@@ -291,6 +291,7 @@ def optimize_acqf_and_get_suggested_point(
     print(acq_values_sorted)
     print("Candidates:")
     print(candidates[indices].squeeze())
+    print(candidates.squeeze())
 
     new_x = get_best_candidates(batch_candidates=candidates, batch_values=acq_values)
     return new_x
