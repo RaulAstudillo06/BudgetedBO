@@ -214,7 +214,7 @@ def get_new_suggested_point(
         )
 
         # Acquisition function
-        budget, lower_bound, fantasy_optimizers = get_suggested_budget(
+        suggested_budget, lower_bound, fantasy_optimizers = get_suggested_budget(
             strategy="fantasy_costs_from_aux_policy",
             refill_until_lower_bound_is_reached=algo_params["refill_until_lower_bound_is_reached"],
             budget_left=budget_left,
@@ -225,30 +225,31 @@ def get_new_suggested_point(
             objective_X=objective_X,
             cost_X=cost_X,
             init_budget=algo_params.get("init_budget"),
-            previous_budget=algo_params.get("suggested_budget"),
+            previous_budget=algo_params.get("current_budget"),
             lower_bound=algo_params.get("lower_bound"),
             fantasy_optimizers=algo_params.get("aux_sequential_fantasy_costs"),
         )
 
-        algo_params["suggested_budget"] = budget
+        algo_params["current_budget"] = suggested_budget
+        algo_params["current_budget_plus_cumulative_cost"] = suggested_budget + cost_X.sum().item()
         algo_params["lower_bound"] = lower_bound
         algo_params["aux_sequential_fantasy_costs"] = fantasy_optimizers
 
         if algo_params.get("soft_plus_transform_budget"):
-            beta = 2.0 / cost_X.min().item()
+            algo_params["beta"] = 2.0 / cost_X.min().item()
         else:
-            beta = None
+            algo_params["beta"] = None
 
         acquisition_function = BudgetedMultiStepExpectedImprovement(
             model=model,
-            budget=budget + cost_X.sum().item(),
+            budget_plus_cumulative_cost=algo_params.get("current_budget_plus_cumulative_cost"),
             batch_size=1,
             lookahead_batch_sizes=[1 for _ in algo_params.get(
                 "lookahead_n_fantasies")],
             num_fantasies=algo_params.get("lookahead_n_fantasies"),
             soft_plus_transform_budget=algo_params.get(
                 "soft_plus_transform_budget"),
-            beta=beta,
+            beta=algo_params.get("beta"),
         )
     elif algo == "EI":
         # Model
@@ -276,7 +277,7 @@ def get_new_suggested_point(
         # Acquisition function
         acquisition_function = ExpectedImprovementPerUnitOfCost(
             model=model,
-            best_f=objective_X.max().item()
+            best_f=objective_X.max().item(),
         )
 
     standard_bounds = torch.tensor([[0.0] * input_dim, [1.0] * input_dim])
