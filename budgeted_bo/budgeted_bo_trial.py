@@ -280,6 +280,23 @@ def get_new_suggested_point(
             best_f=objective_X.max().item(),
         )
 
+    elif algo == "EI-PUC-CC":
+        # Model
+        model = fit_model(
+            X=X,
+            objective_X=objective_X,
+            cost_X=cost_X,
+            training_mode="objective_and_cost",
+            noiseless_obs=True,
+        )
+
+        # Acquisition function
+        acquisition_function = ExpectedImprovementPerUnitOfCost(
+            model=model,
+            best_f=objective_X.max().item(),
+            cost_exponent=budget_left / algo_params.get("init_budget"),
+        )
+
     standard_bounds = torch.tensor([[0.0] * input_dim, [1.0] * input_dim])
 
     new_x = optimize_acqf_and_get_suggested_point(
@@ -288,5 +305,7 @@ def get_new_suggested_point(
         batch_size=1,
         algo_params=algo_params,
     )
+
+    
 
     return new_x
