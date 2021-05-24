@@ -17,6 +17,7 @@ def experiment_manager(
     input_dim: int,
     n_init_evals: int,
     budget: float,
+    n_max_iter: int = 200,
 ) -> None:
 
     for trial in range(first_trial, last_trial + 1):
@@ -44,5 +45,6 @@ def experiment_manager(
             input_dim=input_dim,
             n_init_evals=n_init_evals,
             budget=budget,
+            n_max_iter=n_max_iter,
         )
             
