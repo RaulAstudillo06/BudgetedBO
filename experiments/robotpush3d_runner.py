@@ -26,7 +26,7 @@ def get_objective_cost_function(seed: int) -> Callable:
     original_state = torch.random.get_rng_state()
     torch.manual_seed(seed % 20)
     tartget_location = 10.0 * torch.rand([2]) - 5.0
-    avoid_location = 10.0 * torch.rand([2]) - 5.0
+    #avoid_location = 10.0 * torch.rand([2]) - 5.0
     #avoid_location = tartget_location + 2.0 * torch.rand([2]) - 1.0
     #avoid_location = torch.clamp(avoid_location, min=-5.0, max=5.0)    
     torch.random.set_rng_state(original_state)
@@ -42,7 +42,7 @@ def get_objective_cost_function(seed: int) -> Callable:
             np.random.seed(0)
             object_location = torch.tensor(robot_pushing_3d(x[0].item(), x[1].item(), x[2].item()))
             objective_X.append(-torch.dist(tartget_location, object_location))
-            cost_X.append(torch.dist(avoid_location, object_location))
+            cost_X.append(torch.norm(object_location))
         np.random.seed()
         objective_X = torch.tensor(objective_X)
         cost_X = torch.tensor(cost_X)
@@ -78,5 +78,5 @@ experiment_manager(
     get_objective_cost_function=get_objective_cost_function,
     input_dim=3,
     n_init_evals=8,
-    budget=100.0,
+    budget=200.0,
 )
