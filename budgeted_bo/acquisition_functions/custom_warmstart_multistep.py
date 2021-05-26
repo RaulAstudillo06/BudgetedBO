@@ -2,7 +2,7 @@ import random
 import torch
 
 from botorch import acquisition
-from botorch.acquisition.analytic import ExpectedImprovement, PosteriorMean
+from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.multi_step_lookahead import qMultiStepLookahead, warmstart_multistep
 from botorch.optim import optimize_acqf
 from botorch.sampling.samplers import IIDNormalSampler
@@ -10,6 +10,7 @@ from copy import deepcopy
 from torch import Tensor
 from typing import List, Dict
 
+from budgeted_ei import BudgetedExpectedImprovement
 from budgeted_multi_step_ei import BudgetedMultiStepExpectedImprovement
 
 
@@ -76,21 +77,34 @@ def custom_warmstart_multistep(
 
     n_lookahead_steps = len(algo_params.get("lookahead_n_fantasies")) - 1
 
-    aux_acq_func = BudgetedMultiStepExpectedImprovement(
-        model=model,
-        budget_plus_cumulative_cost=algo_params.get("current_budget_plus_cumulative_cost") - fantasy_cost,
-        batch_size=1,
-        lookahead_batch_sizes=[1 for _ in range(n_lookahead_steps)],
-        num_fantasies=[1 for _ in range(n_lookahead_steps)],
-        soft_plus_transform_budget=algo_params.get(
-            "soft_plus_transform_budget"),
-        beta=algo_params.get("beta"),
-    )
+    if n_lookahead_steps > 0:
+        aux_acq_func = BudgetedMultiStepExpectedImprovement(
+            model=model,
+            budget_plus_cumulative_cost=algo_params.get("current_budget_plus_cumulative_cost") - fantasy_cost,
+            batch_size=1,
+            lookahead_batch_sizes=[1 for _ in range(n_lookahead_steps)],
+            num_fantasies=[1 for _ in range(n_lookahead_steps)],
+            soft_plus_transform_budget=algo_params.get(
+                "soft_plus_transform_budget"),
+            beta=algo_params.get("beta"),
+        )
+    else:
+        y = torch.transpose(model.train_targets, -2, -1)
+        y_original_scale = model.outcome_transform.untransform(y)[0]
+        obj_vals = y_original_scale[..., 0]
+        best_f = torch.max(obj_vals).item()
+
+        aux_acq_func = BudgetedExpectedImprovement(
+            model=model,
+            best_f=best_f,
+            budget=algo_params.get("current_budget") - fantasy_cost,
+        )
+
 
     new_x, acq_value = optimize_acqf(
             acq_function=aux_acq_func,
             bounds=standard_bounds,
-            q=aux_acq_func.get_augmented_q_batch_size(1),
+            q=aux_acq_func.get_augmented_q_batch_size(1) if n_lookahead_steps > 0 else 1,
             num_restarts=5 * input_dim,
             raw_samples=100 * input_dim,
             options={
