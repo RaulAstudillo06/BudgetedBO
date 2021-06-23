@@ -31,7 +31,7 @@ def get_objective_cost_function(seed: int) -> Callable:
 
     def cost_function(X: Tensor) -> Tensor:
         X_unnorm = (X * 10.24) - 5.12 
-        a, b, c = get_cost_function_parameters(seed=seed)
+        a, b, c = get_cost_function_parameters(seed=seed % 20)
         ln_cost_X = a * torch.cos(b * (2 * pi / 5.12) * (X_unnorm + c)).mean(dim=-1)
         cost_X = torch.exp(ln_cost_X)
         return cost_X
@@ -40,8 +40,8 @@ def get_objective_cost_function(seed: int) -> Callable:
 
 
 # Algos
-algos = ["B-MS-EI"]
-algos_params = [{"lookahead_n_fantasies": [1, 1, 1], "refill_until_lower_bound_is_reached": True, "soft_plus_transform_budget": True}]
+algo = "EI-PUC-CC"
+algo_params = {"lookahead_n_fantasies": [1, 1, 1], "refill_until_lower_bound_is_reached": True, "soft_plus_transform_budget": False}
 #algos = ["EI"]
 #algos_params = [{}]
 
@@ -55,8 +55,8 @@ elif len(sys.argv) == 2:
 
 experiment_manager(
     problem="dropwave",
-    algos=algos,
-    algos_params=algos_params,
+    algo=algo,
+    algo_params=algo_params,
     restart=False,
     first_trial=first_trial,
     last_trial=last_trial,

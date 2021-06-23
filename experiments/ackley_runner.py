@@ -31,7 +31,7 @@ def get_objective_cost_function(seed: int) -> Callable:
 
     def cost_function(X: Tensor) -> Tensor:
         X_unnorm = (2.0 * X) - 1.0
-        a, b, c = get_cost_function_parameters(seed=seed)
+        a, b, c = get_cost_function_parameters(seed=seed % 20)
         ln_cost_X = a * torch.cos(b * (2 * pi) * (X_unnorm + c)).mean(dim=-1)
         cost_X = torch.exp(ln_cost_X)
         return cost_X
@@ -40,7 +40,7 @@ def get_objective_cost_function(seed: int) -> Callable:
 
 
 # Algos
-algo = "EI"
+algo = "B-MS-EI"
 
 if algo == "B-MS-EI": 
     algo_params = {"lookahead_n_fantasies": [1, 1, 1], "refill_until_lower_bound_is_reached": True, "soft_plus_transform_budget": False}
@@ -66,4 +66,5 @@ experiment_manager(
     input_dim=6,
     n_init_evals=14,
     budget=120.0,
+    n_max_iter=300,
 )
