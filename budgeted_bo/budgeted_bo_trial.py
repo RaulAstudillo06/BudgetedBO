@@ -11,9 +11,9 @@ import torch
 from botorch.acquisition import ExpectedImprovement
 from torch import Tensor
 
-from acquisition_functions.budgeted_multi_step_ei import BudgetedMultiStepExpectedImprovement
-from acquisition_functions.ei_puc import ExpectedImprovementPerUnitOfCost
-from utils import (
+from budgeted_bo.acquisition_functions.budgeted_multi_step_ei import BudgetedMultiStepExpectedImprovement
+from budgeted_bo.acquisition_functions.ei_puc import ExpectedImprovementPerUnitOfCost
+from budgeted_bo.utils import (
     evaluate_obj_and_cost_at_X, 
     fit_model,
     generate_initial_design, 

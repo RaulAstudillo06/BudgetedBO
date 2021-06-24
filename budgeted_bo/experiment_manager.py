@@ -3,7 +3,7 @@ from typing import Callable, Dict, List, Optional
 import os
 import sys
 
-from budgeted_bo_trial import budgeted_bo_trial
+from budgeted_bo.budgeted_bo_trial import budgeted_bo_trial
 
 
 def experiment_manager(

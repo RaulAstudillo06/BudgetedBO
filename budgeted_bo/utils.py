@@ -25,8 +25,8 @@ from gpytorch.likelihoods.gaussian_likelihood import GaussianLikelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from torch import Tensor
 
-from acquisition_functions.ei_puc import ExpectedImprovementPerUnitOfCost
-from custom_warmstart_multistep import custom_warmstart_multistep
+from budgeted_bo.acquisition_functions.ei_puc import ExpectedImprovementPerUnitOfCost
+from budgeted_bo.acquisition_function_optimization.custom_warmstart_multistep import custom_warmstart_multistep
 
 
 def evaluate_obj_and_cost_at_X(

@@ -10,11 +10,11 @@ from botorch.acquisition.multi_step_lookahead import qMultiStepLookahead
 from botorch.acquisition.objective import LinearMCObjective, ScalarizedObjective
 from botorch.models.model import Model
 from botorch.sampling.samplers import MCSampler, SobolQMCNormalSampler
-from budgeted_ei import (
+from budgeted_bo.acquisition_functions.budgeted_ei import (
     BudgetedExpectedImprovement,
     qBudgetedExpectedImprovement,
 )
-from posterior_mean_sampler import PosteriorMeanSampler
+from budgeted_bo.samplers import PosteriorMeanSampler
 from torch import Tensor
 from torch.nn import Module
 
