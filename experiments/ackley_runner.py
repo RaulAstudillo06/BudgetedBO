@@ -25,7 +25,7 @@ def get_objective_cost_function(seed: int) -> Callable:
     
     def objective_function(X: Tensor) -> Tensor:
         X_unnorm = (2.0 * X) - 1.0 
-        ackley = Ackley(dim=6)
+        ackley = Ackley(dim=3)
         objective_X = -ackley.evaluate_true(X_unnorm)
         return objective_X
 
@@ -64,8 +64,8 @@ experiment_manager(
     first_trial=first_trial,
     last_trial=last_trial,
     get_objective_cost_function=get_objective_cost_function,
-    input_dim=6,
-    n_init_evals=14,
-    budget=120.0,
+    input_dim=3,
+    n_init_evals=8,
+    budget=60.0,
     n_max_iter=300,
 )
