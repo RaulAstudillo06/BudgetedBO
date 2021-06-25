@@ -125,9 +125,9 @@ def run_classifier(
     model = name_to_cls[model_name](**params)
     # get baseline cost
     start_time = time.time()
-    for _ in range(5):
-        model_with_default_params.fit(X, y)
-    elapsed_time_default = time.time() - start_time
+    #for _ in range(5):
+        #model_with_default_params.fit(X, y)
+    #elapsed_time_default = time.time() - start_time
     # run with real parameters
     start_time = time.time()
     for _ in range(5):
@@ -135,7 +135,7 @@ def run_classifier(
     elapsed_time = time.time() - start_time
     # cross val score
     cv_score = cross_val_score(model, X, y, cv=5).mean()
-    return cv_score, elapsed_time / elapsed_time_default
+    return cv_score, elapsed_time / 5#elapsed_time_default
 
 
 def sklearn_classifier_objective(
