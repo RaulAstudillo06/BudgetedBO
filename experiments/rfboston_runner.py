@@ -1,6 +1,7 @@
 import os
 import sys
 import numpy as np
+import pickle
 import torch
 
 from botorch.settings import debug
@@ -22,20 +23,63 @@ from sklearn_problem_gen import sklearn_classifier_objective
 # Objective and cost functions
 def get_objective_cost_function(seed: int) -> Callable:
 
-    dataset_name = "Boston"
-    model_name = "RandomForestReg"
+    if True:
+
+        with open(script_dir + '/rfboston_objective_rf_surrogate.pkl', 'rb') as obj_pickle_file:
+            objective_surrogate = pickle.load(obj_pickle_file)
+
+        with open(script_dir + '/rfboston_cost_rf_surrogate.pkl', 'rb') as cost_pickle_file:
+            cost_surrogate = pickle.load(cost_pickle_file)
+
+        def objective_function(X: Tensor) -> Tensor:
+            batch = X.dim() > 1
+            if batch:
+                xs = [x.detach().cpu().numpy() for x in X]
+            else:
+                xs = [X.detach().cpu().numpy()]
+
+            vals = []
+
+            for x in xs:
+                vals.append(objective_surrogate.predict(x[None, :])[0])
+
+            objective_X = torch.tensor(vals).to(X)
+            return objective_X
 
 
-    def objective_cost_function(X):
-        X_unscaled = X.clone()
-        X_unscaled[:, 0] = 255.0 * X_unscaled[:, 0] + 1.0
-        X_unscaled[:, 1] = 63.0 * X_unscaled[:, 1] + 1.0
-        X_unscaled[:, 2] = X_unscaled[:, 2] - 1.0
-        return sklearn_classifier_objective(
-            X=X_unscaled, dataset_name=dataset_name, model_name=model_name
-        )
+        def cost_function(X: Tensor) -> Tensor:
+            batch = X.dim() > 1
+            if batch:
+                xs = [x.detach().cpu().numpy() for x in X]
+            else:
+                xs = [X.detach().cpu().numpy()]
 
-    return [objective_cost_function]
+            vals = []
+
+            for x in xs:
+                vals.append(cost_surrogate.predict(x[None, :])[0])
+
+            cost_X = torch.tensor(vals).to(X)
+            return cost_X
+
+
+        return [objective_function, cost_function]
+
+    else:
+        dataset_name = "Boston"
+        model_name = "RandomForestReg"
+
+
+        def objective_cost_function(X):
+            X_unscaled = X.clone()
+            X_unscaled[:, 0] = 255.0 * X_unscaled[:, 0] + 1.0
+            X_unscaled[:, 1] = 63.0 * X_unscaled[:, 1] + 1.0
+            X_unscaled[:, 2] = X_unscaled[:, 2] - 1.0
+            return sklearn_classifier_objective(
+                X=X_unscaled, dataset_name=dataset_name, model_name=model_name
+            )
+
+        return [objective_cost_function]
 
 
 # Algos
@@ -64,5 +108,5 @@ experiment_manager(
     get_objective_cost_function=get_objective_cost_function,
     input_dim=3,
     n_init_evals=8,
-    budget=10.0,
+    budget=20.0,
 )
