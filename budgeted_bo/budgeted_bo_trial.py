@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from locale import Error
 from typing import Callable, Dict, List, Optional
 
 import logging
@@ -33,7 +34,8 @@ def budgeted_bo_trial(
     input_dim: int,
     n_init_evals: int,
     budget: float,
-    n_max_iter: int = 200
+    n_max_iter: int = 200,
+    ignore_failures: bool = False,
 ) -> None:
     # Make sure that objective and cost functions are passed
     if (objective_cost_function is None) and (objective_function is None or cost_function is None):
@@ -139,14 +141,29 @@ def budgeted_bo_trial(
         # New suggested point
         t0 = time.time()
 
-        new_x = get_new_suggested_point(
-            algo=algo,
-            X=X,
-            objective_X=objective_X,
-            cost_X=cost_X,
-            budget_left=budget_plus_init_cost - cumulative_cost,
-            algo_params=algo_params,
-        )
+        try:
+            new_x = get_new_suggested_point(
+                algo=algo,
+                X=X,
+                objective_X=objective_X,
+                cost_X=cost_X,
+                budget_left=budget_plus_init_cost - cumulative_cost,
+                algo_params=algo_params,
+            )
+        except:
+            if ignore_failures:
+                print("An error ocurred when computing the next point to evaluate. Instead, a point will be chosen uniformly at random.")
+                new_x = get_new_suggested_point(
+                algo="Random",
+                X=X,
+                objective_X=objective_X,
+                cost_X=cost_X,
+                budget_left=budget_plus_init_cost - cumulative_cost,
+                algo_params=algo_params,
+            )
+            else:
+                raise Error("An error ocurred when computing the next point to evaluate.")
+
 
         t1 = time.time()
         running_times.append(t1 - t0)
