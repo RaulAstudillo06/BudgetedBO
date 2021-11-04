@@ -18,7 +18,7 @@ from torch.distributions import Normal
 
 
 class BudgetedExpectedImprovement(AnalyticAcquisitionFunction):
-    r"""Analytic Budget-Constrained Expected Improvement (feasibility-weighted).
+    r"""Analytic Budgeted Expected Improvement.
 
     Computes the analytic expected improvement weighted by a probability of
     satisfying a budget constraint. The objective and (log-) cost are assumed
@@ -37,7 +37,7 @@ class BudgetedExpectedImprovement(AnalyticAcquisitionFunction):
         beta: Optional[Union[float, Tensor]] = None,
         objective: Optional[ScalarizedObjective] = None,
     ) -> None:
-        r"""Analytic Budgeted Expected Improvement (feasibility-weighted).
+        r"""Analytic Budgeted Expected Improvement.
         Args:
             model: A fitted two-outcome model, where the first output corresponds
                 to the objective and the second one to the log-cost.
