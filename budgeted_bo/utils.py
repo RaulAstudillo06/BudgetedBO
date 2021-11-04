@@ -270,8 +270,8 @@ def optimize_acqf_and_get_suggested_point(
             num_restarts=num_restarts,
             raw_samples=raw_samples,
             options={
-                "batch_limit": 5,
-                "maxiter": 100,
+                "batch_limit": 2,
+                "maxiter": 200,
                 "nonnegative": True,
                 "method": "L-BFGS-B",
             },

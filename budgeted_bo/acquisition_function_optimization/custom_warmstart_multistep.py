@@ -108,7 +108,7 @@ def custom_warmstart_multistep(
             num_restarts=5 * input_dim,
             raw_samples=100 * input_dim,
             options={
-                "batch_limit": 5,
+                "batch_limit": 1,
                 "maxiter": 100,
                 "method": "L-BFGS-B",
             },
