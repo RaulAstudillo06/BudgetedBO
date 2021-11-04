@@ -25,7 +25,7 @@ X_unscaled[:, 2] = X_unscaled[:, 2] - 1.0
 dataset_name = "Boston"
 model_name = "RandomForestReg"
 
-objective_X, cost_X = sklearn_classifier_objective(X=X_unscaled, dataset_name=dataset_name, model_name=model_name)
+objective_X, cost_X = sklearn_classifier_objective(X=X_unscaled, dataset_name=dataset_name, model_name=model_name, random_state=165)
 
 np.savetxt(script_dir + "/rfboston_on_grid_X.txt", X.numpy())
 np.savetxt(script_dir + "/rfboston_on_grid_objective.txt", objective_X.numpy())

@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split, ParameterSampler
 from sklearn.ensemble import RandomForestRegressor
 
 
-np.random.seed(1)
+np.random.seed(0)
 
 
 def random_search(random_iter, x, y):
@@ -37,7 +37,7 @@ def random_search(random_iter, x, y):
                                         bootstrap=True,
                                         oob_score=False,
                                         n_jobs=1,
-                                        random_state=0,
+                                        random_state=165,
                                         verbose=0, 
                                         )
 

@@ -22,8 +22,10 @@ from sklearn_problem_gen import sklearn_classifier_objective
 
 # Objective and cost functions
 def get_objective_cost_function(seed: int) -> Callable:
+    
+    use_surrogate = False
 
-    if True:
+    if use_surrogate:
 
         with open(script_dir + '/rfboston_objective_rf_surrogate.pkl', 'rb') as obj_pickle_file:
             objective_surrogate = pickle.load(obj_pickle_file)
@@ -76,7 +78,7 @@ def get_objective_cost_function(seed: int) -> Callable:
             X_unscaled[:, 1] = 63.0 * X_unscaled[:, 1] + 1.0
             X_unscaled[:, 2] = X_unscaled[:, 2] - 1.0
             return sklearn_classifier_objective(
-                X=X_unscaled, dataset_name=dataset_name, model_name=model_name
+                X=X_unscaled, dataset_name=dataset_name, model_name=model_name, random_state=seed
             )
 
         return [objective_cost_function]
@@ -86,7 +88,7 @@ def get_objective_cost_function(seed: int) -> Callable:
 algo = "B-MS-EI"
 
 if algo == "B-MS-EI": 
-    algo_params = {"lookahead_n_fantasies": [1, 1, 1], "refill_until_lower_bound_is_reached": True, "soft_plus_transform_budget": False}
+    algo_params = {"lookahead_n_fantasies": [4, 4, 2], "refill_until_lower_bound_is_reached": True, "soft_plus_transform_budget": False}
 else:
     algo_params = {}
 
@@ -102,11 +104,13 @@ experiment_manager(
     problem="rfboston",
     algo=algo,
     algo_params=algo_params,
-    restart=False,
+    restart=True,
     first_trial=first_trial,
     last_trial=last_trial,
     get_objective_cost_function=get_objective_cost_function,
     input_dim=3,
     n_init_evals=8,
-    budget=20.0,
+    budget=10.0,
+    ignore_failures=True,
 )
+

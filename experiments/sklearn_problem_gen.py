@@ -37,7 +37,7 @@ CLASSIFER_PARAM_BOUNDS = {
 }
 
 
-def build_params(model_name: str, X: np.ndarray) -> Dict:
+def build_params(model_name: str, X: np.ndarray, random_state: int) -> Dict:
     r"""Convert array to parameter dict."""
 
     if model_name == "RandomForest" or model_name == "RandomForestReg":
@@ -45,6 +45,7 @@ def build_params(model_name: str, X: np.ndarray) -> Dict:
             "n_estimators": np.rint(X[0]).astype(int),
             "max_depth": np.rint(X[1]).astype(int),
             "max_features": float(10 ** X[2]),
+            "random_state": random_state,
         }
     elif model_name == "DecisionTree":
         params = {
@@ -125,9 +126,9 @@ def run_classifier(
     model = name_to_cls[model_name](**params)
     # get baseline cost
     start_time = time.time()
-    #for _ in range(5):
-        #model_with_default_params.fit(X, y)
-    #elapsed_time_default = time.time() - start_time
+    for _ in range(5):
+        model_with_default_params.fit(X, y)
+    elapsed_time_default = time.time() - start_time
     # run with real parameters
     start_time = time.time()
     for _ in range(5):
@@ -135,13 +136,14 @@ def run_classifier(
     elapsed_time = time.time() - start_time
     # cross val score
     cv_score = cross_val_score(model, X, y, cv=5).mean()
-    return cv_score, elapsed_time / 5#elapsed_time_default
+    return cv_score, elapsed_time / elapsed_time_default
 
 
 def sklearn_classifier_objective(
     X: Tensor,
     dataset_name: str,
     model_name: str,
+    random_state: int,
 ):
     r"""Entry point from benchmarking setup."""
     batch = X.ndimension() > 1
@@ -151,7 +153,7 @@ def sklearn_classifier_objective(
         xs = [X.detach().cpu().numpy()]
     objs, costs = [], []
     for x in xs:
-        params = build_params(model_name=model_name, X=x)
+        params = build_params(model_name=model_name, X=x, random_state=random_state)
         data_X, data_y = get_dataset(dataset_name=dataset_name)
         score, cost = run_classifier(
             model_name=model_name, params=params, X=data_X, y=data_y
