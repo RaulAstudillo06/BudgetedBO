@@ -69,6 +69,10 @@ __pycache__/
 
 # Experimental results
 experiments_results/
+results/
+
+# Figures
+figures/
 
 # Plots
 *.png
