@@ -31,8 +31,6 @@ class BudgetedMultiStepExpectedImprovement(qMultiStepLookahead):
         num_fantasies: Optional[List[int]] = None,
         samplers: Optional[List[MCSampler]] = None,
         X_pending: Optional[Tensor] = None,
-        beta: Optional[Union[float, Tensor]] = None,
-        soft_plus_transform_budget: bool = False,
         collapse_fantasy_base_samples: bool = True,
     ) -> None:
         r"""Budgeted Multi-Step Expected Improvement.
@@ -52,18 +50,11 @@ class BudgetedMultiStepExpectedImprovement(qMultiStepLookahead):
                 have been submitted for function evaluation but have not yet been
                 evaluated. Concatenated into `X` upon forward call. Copied and set to
                 have no gradient.
-            beta: A scalar representing the hyperparameter of the soft-plus transformation
-                applied to the budget left at every step. Default is None, which uses a
-                predetermined setting of `2 * (k + 1) / budget`.
-            soft_plus_transform_budget: If True, at every look-ahead step, a soft-plus transformation
-                is applied to the remaining budget before computing the probability of feasibility.
             collapse_fantasy_base_samples: If True, collapse_batch_dims of the Samplers
                 will be applied on fantasy batch dimensions as well, meaning that base
                 samples are the same in all subtrees starting from the same level.
         """
         self.budget_plus_cumulative_cost = budget_plus_cumulative_cost
-        self.beta = beta
-        self.soft_plus_transform_budget = soft_plus_transform_budget
         self.batch_size = batch_size
         batch_sizes = [batch_size] + lookahead_batch_sizes
 
@@ -78,7 +69,7 @@ class BudgetedMultiStepExpectedImprovement(qMultiStepLookahead):
 
             valfunc_cls = [qBudgetedExpectedImprovement for _ in batch_sizes]
 
-            inner_mc_samples = [512 for bs in batch_sizes]
+            inner_mc_samples = [128 for bs in batch_sizes]
         else:
             objective = ScalarizedObjective(weights=weights)
 
@@ -86,11 +77,9 @@ class BudgetedMultiStepExpectedImprovement(qMultiStepLookahead):
 
             inner_mc_samples = None
 
-        beta = self.beta if self.soft_plus_transform_budget else None
-
         valfunc_argfacs = [
             budgeted_ei_argfac(
-                budget_plus_cumulative_cost=self.budget_plus_cumulative_cost, beta=beta, is_mc=use_mc_val_funcs
+                budget_plus_cumulative_cost=self.budget_plus_cumulative_cost
             )
             for _ in batch_sizes
         ]
@@ -126,11 +115,9 @@ class BudgetedMultiStepExpectedImprovement(qMultiStepLookahead):
 class budgeted_ei_argfac(Module):
     r"""Extract the best observed value and reamaining budget from the model."""
 
-    def __init__(self, budget_plus_cumulative_cost: Union[float, Tensor], beta: float, is_mc: bool) -> None:
+    def __init__(self, budget_plus_cumulative_cost: Union[float, Tensor]) -> None:
         super().__init__()
         self.budget_plus_cumulative_cost = budget_plus_cumulative_cost
-        self.beta = beta
-        self.is_mc = is_mc
 
     def forward(self, model: Model, X: Tensor) -> Dict[str, Any]:
         y = torch.transpose(model.train_targets, -2, -1)
@@ -140,15 +127,8 @@ class budgeted_ei_argfac(Module):
         costs = torch.exp(log_costs)
         current_budget = self.budget_plus_cumulative_cost - costs.sum(dim=-1, keepdim=True)
 
-        if self.is_mc:
-            params = {
-                "best_f": obj_vals.max(dim=-1, keepdim=True).values,
-                "budget": current_budget,
-            }
-        else:
-            params = {
-                "best_f": obj_vals.max(dim=-1, keepdim=True).values,
-                "budget": current_budget,
-                "beta": self.beta,
-            }
+        params = {
+            "best_f": obj_vals.max(dim=-1, keepdim=True).values,
+            "budget": current_budget,
+        }
         return params

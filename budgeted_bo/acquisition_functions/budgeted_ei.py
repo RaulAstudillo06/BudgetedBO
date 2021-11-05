@@ -34,7 +34,6 @@ class BudgetedExpectedImprovement(AnalyticAcquisitionFunction):
         best_f: Union[float, Tensor],
         budget: Union[float, Tensor],
         maximize: bool = True,
-        beta: Optional[Union[float, Tensor]] = None,
         objective: Optional[ScalarizedObjective] = None,
     ) -> None:
         r"""Analytic Budgeted Expected Improvement.
@@ -46,8 +45,6 @@ class BudgetedExpectedImprovement(AnalyticAcquisitionFunction):
             budget: Either a scalar or a `b`-dim Tensor (batch mode) representing
                 the budget constraint.
             maximize: If True, consider the problem a maximization problem.
-            beta: A scalar representing the hyperparameter of the soft-plus
-                transformation applied to the budget. Default is None.
         """
         # use AcquisitionFunction constructor to avoid check for objective
         super(AnalyticAcquisitionFunction, self).__init__(model=model)
@@ -55,10 +52,6 @@ class BudgetedExpectedImprovement(AnalyticAcquisitionFunction):
         self.maximize = maximize
         self.register_buffer("best_f", torch.as_tensor(best_f))
         self.register_buffer("budget", torch.as_tensor(budget))
-        if beta is not None:
-            self.register_buffer("beta", torch.as_tensor(beta))
-        else:
-            self.beta = beta
 
     @t_batch_mode_transform(expected_q=1)
     def forward(self, X: Tensor) -> Tensor:
@@ -108,21 +101,14 @@ class BudgetedExpectedImprovement(AnalyticAcquisitionFunction):
             torch.ones(1, device=means.device, dtype=means.dtype),
             validate_args=True,
         )
-        if self.beta is not None:
-            soft_plus = torch.nn.Softplus(beta=self.beta)
-            soft_plus_budget = soft_plus(self.budget)
-            prob_feas = standard_normal.cdf(
-                (torch.log(soft_plus_budget) - means) / sigmas
-            )
-        else:
-            prob_feas = standard_normal.cdf(
-                (torch.log(self.budget.clamp_min(1e-6)) - means) / sigmas
-            )
-            prob_feas = torch.where(
-                self.budget > 1e-6,
-                prob_feas,
-                torch.zeros(1, device=means.device, dtype=means.dtype),
-            )
+        prob_feas = standard_normal.cdf(
+            (torch.log(self.budget.clamp_min(1e-6)) - means) / sigmas
+        )
+        prob_feas = torch.where(
+            self.budget > 1e-6,
+            prob_feas,
+            torch.zeros(1, device=means.device, dtype=means.dtype),
+        )
         return prob_feas
 
 

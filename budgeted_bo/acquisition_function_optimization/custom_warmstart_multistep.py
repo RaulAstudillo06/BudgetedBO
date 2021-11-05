@@ -84,9 +84,6 @@ def custom_warmstart_multistep(
             batch_size=1,
             lookahead_batch_sizes=[1 for _ in range(n_lookahead_steps)],
             num_fantasies=[1 for _ in range(n_lookahead_steps)],
-            soft_plus_transform_budget=algo_params.get(
-                "soft_plus_transform_budget"),
-            beta=algo_params.get("beta"),
         )
     else:
         y = torch.transpose(model.train_targets, -2, -1)

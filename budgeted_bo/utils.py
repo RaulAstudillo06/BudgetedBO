@@ -200,7 +200,6 @@ def get_suggested_budget(
     init_budget: float,
     previous_budget: Optional[float] = None,
     lower_bound: Optional[float] = None,
-    fantasy_optimizers: Optional[float] = None,
 ):
     """
     Computes the suggested budget to be used by the budgeted multi-step
@@ -212,7 +211,7 @@ def get_suggested_budget(
         and (previous_budget - cost_X[-1] > lower_bound)
     ):
         suggested_budget = previous_budget - cost_X[-1].item()
-        return suggested_budget, lower_bound, fantasy_optimizers
+        return suggested_budget, lower_bound
 
     if strategy == "fantasy_costs_from_aux_policy":
 
@@ -231,7 +230,7 @@ def get_suggested_budget(
         suggested_budget = fantasy_costs.sum().item()
         lower_bound = fantasy_costs.min().item()
     suggested_budget = min(suggested_budget, budget_left)
-    return suggested_budget, lower_bound, fantasy_optimizers
+    return suggested_budget, lower_bound
 
 
 def optimize_acqf_and_get_suggested_point(
