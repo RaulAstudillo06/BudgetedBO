@@ -45,6 +45,7 @@ def budgeted_bo_trial(
     # Modify algo's name to account for hyperparameters
     if algo == "B-MS-EI":
         algo_id = algo + "_"
+
         for n in algo_params.get("lookahead_n_fantasies"):
             algo_id += str(n)
 
@@ -55,19 +56,16 @@ def budgeted_bo_trial(
         else:
             algo_id += "0"
 
-        algo_id += "_"
-
-        if algo_params.get("soft_plus_transform_budget"):
-            algo_id += "1"
-        else:
-            algo_id += "0"
+        algo_id += "_" + str(int(budget))
+    elif algo == "EI-PUC-CC":
+        algo_id = algo + "_" + str(int(budget))
     else:
         algo_id = algo
 
     # Get script directory
     script_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
     project_path = script_dir[:-11]
-    results_folder = project_path + "/experiments_results/" + problem + "/" + algo_id + "/"
+    results_folder = project_path + "/experiments/results/" + problem + "/" + algo_id + "/"
 
     if restart:
         # Check if training data is already available
@@ -231,7 +229,7 @@ def get_new_suggested_point(
         )
 
         # Acquisition function
-        suggested_budget, lower_bound, fantasy_optimizers = get_suggested_budget(
+        suggested_budget, lower_bound= get_suggested_budget(
             strategy="fantasy_costs_from_aux_policy",
             refill_until_lower_bound_is_reached=algo_params.get("refill_until_lower_bound_is_reached"),
             budget_left=budget_left,
@@ -244,18 +242,11 @@ def get_new_suggested_point(
             init_budget=algo_params.get("init_budget"),
             previous_budget=algo_params.get("current_budget"),
             lower_bound=algo_params.get("lower_bound"),
-            fantasy_optimizers=algo_params.get("aux_sequential_fantasy_costs"),
         )
 
         algo_params["current_budget"] = suggested_budget
         algo_params["current_budget_plus_cumulative_cost"] = suggested_budget + cost_X.sum().item()
         algo_params["lower_bound"] = lower_bound
-        algo_params["aux_sequential_fantasy_costs"] = fantasy_optimizers
-
-        if algo_params.get("soft_plus_transform_budget"):
-            algo_params["beta"] = 2.0 / cost_X.min().item()
-        else:
-            algo_params["beta"] = None
 
         acquisition_function = BudgetedMultiStepExpectedImprovement(
             model=model,
@@ -264,9 +255,6 @@ def get_new_suggested_point(
             lookahead_batch_sizes=[1 for _ in algo_params.get(
                 "lookahead_n_fantasies")],
             num_fantasies=algo_params.get("lookahead_n_fantasies"),
-            soft_plus_transform_budget=algo_params.get(
-                "soft_plus_transform_budget"),
-            beta=algo_params.get("beta"),
         )
     elif algo == "EI":
         # Model
