@@ -70,6 +70,7 @@ __pycache__/
 # Experimental results
 experiments_results/
 results/
+old_stuff/
 
 # Figures
 figures/
