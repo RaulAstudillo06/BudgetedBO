@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# (c) Facebook, Inc. and its affiliates. Confidential and proprietary.
 
 from __future__ import annotations
 
@@ -125,7 +124,9 @@ class budgeted_ei_argfac(Module):
         obj_vals = y_original_scale[..., 0]
         log_costs = y_original_scale[..., 1]
         costs = torch.exp(log_costs)
-        current_budget = self.budget_plus_cumulative_cost - costs.sum(dim=-1, keepdim=True)
+        current_budget = self.budget_plus_cumulative_cost - costs.sum(
+            dim=-1, keepdim=True
+        )
 
         params = {
             "best_f": obj_vals.max(dim=-1, keepdim=True).values,

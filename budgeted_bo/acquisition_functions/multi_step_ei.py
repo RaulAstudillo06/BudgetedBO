@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# (c) Facebook, Inc. and its affiliates. Confidential and proprietary.
 
 from __future__ import annotations
 
@@ -10,7 +9,6 @@ from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.acquisition.multi_step_lookahead import qMultiStepLookahead
 from botorch.models.model import Model
 from botorch.sampling.samplers import MCSampler, SobolQMCNormalSampler
-from botorch_fb.experimental.sampling.posterior_mean_sampler import PosteriorMeanSampler
 from torch import Tensor
 
 

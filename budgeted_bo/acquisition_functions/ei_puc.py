@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# (c) Facebook, Inc. and its affiliates. Confidential and proprietary.
 
 from __future__ import annotations
 
@@ -15,8 +14,7 @@ from torch.distributions import Normal
 
 
 class ExpectedImprovementPerUnitOfCost(AnalyticAcquisitionFunction):
-    r"""Expected Improvement Per Unit of Cost (analytic).
-    """
+    r"""Expected Improvement Per Unit of Cost (analytic)."""
 
     def __init__(
         self,
@@ -50,12 +48,12 @@ class ExpectedImprovementPerUnitOfCost(AnalyticAcquisitionFunction):
                 i.e., what is considered are the marginal posteriors, not the
                 joint.
         Returns:
-            A `b1 x ... bk`-dim tensor of Expected Improvement Per Unit of Cost values 
+            A `b1 x ... bk`-dim tensor of Expected Improvement Per Unit of Cost values
             at the given design points `X`.
         """
         posterior = self._get_posterior(X=X)
         means = posterior.mean  # (b) x 2
-        vars = posterior.variance.clamp_min(1e-6) # (b) x 2
+        vars = posterior.variance.clamp_min(1e-6)  # (b) x 2
         stds = vars.sqrt()
 
         # (b) x 1
@@ -73,6 +71,9 @@ class ExpectedImprovementPerUnitOfCost(AnalyticAcquisitionFunction):
         cdf_u = standard_normal.cdf(u)
         ei = std_obj * (pdf_u + u * cdf_u)  # (b) x 1
         # (b) x 1
-        eic = torch.exp(-(self.cost_exponent * means[..., 1]) + 0.5 * (torch.square(self.cost_exponent) * vars[..., 1]))
+        eic = torch.exp(
+            -(self.cost_exponent * means[..., 1])
+            + 0.5 * (torch.square(self.cost_exponent) * vars[..., 1])
+        )
         ei_puc = ei.mul(eic)  # (b) x 1
         return ei_puc.squeeze(dim=-1)
